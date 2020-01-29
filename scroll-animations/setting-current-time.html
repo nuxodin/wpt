@@ -108,8 +108,22 @@
     assert_times_equal(
       animation.currentTime,
       largerThanDuration,
-      "Animation current time should be equal to the set value."
+      "Animation current time should be equal to the set value after end."
     );
+
+    const smallerThanDuration = animation.effect.getTiming().duration / 2;
+    animation.currentTime = smallerThanDuration;
+
+    assert_less_than_equal(smallerThanDuration, range, "Make sure that the" +
+      " test value is in the middle of the effect and the timeline");
+    assert_equals(animation.playState, "running");
+    assert_times_equal(
+      animation.currentTime,
+      smallerThanDuration,
+      "Animation current time should be equal to the set value even after " +
+      "animation had entered finished state."
+    );
+
   }, 'Set animation current time to a value beyond effect end.');
 
   promise_test(async t => {

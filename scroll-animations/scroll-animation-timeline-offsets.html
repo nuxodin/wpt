@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<meta charset=utf-8>
+<title>Test basic functionality of scroll linked animation timeline start and end offsets.</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/web-animations/testcommon.js"></script>
+<style>
+  .scroller {
+    overflow: auto;
+    height: 100px;
+    width: 100px;
+  }
+  .contents {
+    height: 1000px;
+    width: 100%;
+  }
+</style>
+<div id="log"></div>
+<script>
+  'use strict';
+
+  function createScroller(test) {
+    var scroller = createDiv(test);
+    scroller.innerHTML = "<div class='contents'></div>";
+    scroller.classList.add('scroller');
+    return scroller;
+  }
+
+  function createScrollTimeline(test) {
+    return new ScrollTimeline({
+      scrollSource: createScroller(test),
+      orientation: "vertical",
+      startScrollOffset: "20%",
+      endScrollOffset: "80%",
+      timeRange: 1000
+    });
+  }
+
+  function createScrollLinkedAnimation(test, timeline) {
+    if(timeline === undefined)
+      timeline = createScrollTimeline(test);
+    const DURATION = 1000; // ms
+    const KEYFRAMES = { opacity: [1, 0] };
+    return new Animation(
+      new KeyframeEffect(createDiv(test), KEYFRAMES, DURATION), timeline);
+  }
+
+  const test_cases = [
+    {
+      label: "Before startScrollOffset",
+      scroll_percent: 0.1,
+      state: "idle",
+      animation_current_time: null,
+      timeline_current_time: -Infinity,
+      expectation: 'Animation current time is correct when timeline current' +
+      ' time is before startScrollOffset'
+    },
+    {
+      label: "At startScrollOffset",
+      scroll_percent: 0.2,
+      state: "running",
+      animation_current_time: 0,
+      timeline_current_time: 0,
+      expectation: 'Animation current time is correct when timeline current' +
+      ' time is at startScrollOffset'
+    },
+    {
+      label: "Between startScrollOffset and endScrollOffset",
+      scroll_percent: 0.5,
+      state: "running",
+      animation_current_time: 500,
+      timeline_current_time: 500,
+      expectation: 'Animation current time is correct when timeline current' +
+      ' time is between startScrollOffset and endScrollOffset'
+    },
+    {
+      label: "At endScrollOffset",
+      scroll_percent: 0.8,
+      state: "idle",
+      animation_current_time: null,
+      timeline_current_time: Infinity,
+      expectation: 'Animation current time is correct when timeline current' +
+      ' time is at endScrollOffset'
+    },
+    {
+      label: "After endScrollOffset",
+      scroll_percent: 0.9,
+      state: "idle",
+      animation_current_time: null,
+      timeline_current_time: Infinity,
+      expectation: 'Animation current time is correct when timeline current' +
+      ' time is after endScrollOffset'
+    }
+  ];
+
+  for (const test_case of test_cases){
+    promise_test(async t => {
+      const animation = createScrollLinkedAnimation(t);
+      const scroller = animation.timeline.scrollSource;
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+
+      animation.play();
+
+      await animation.ready;
+      scroller.scrollTop = test_case.scroll_percent * maxScroll;
+      assert_equals(
+        animation.playState,
+        test_case.state,
+        test_case.label + ": state");
+      assert_equals(
+        animation.currentTime,
+        test_case.animation_current_time,
+        test_case.label + ": animation.currentTime");
+      assert_equals(
+        animation.timeline.currentTime,
+        test_case.timeline_current_time,
+        test_case.label + ": timeline.currentTime"
+      );
+    }, test_case.expectation);
+  }
+
+  promise_test(async t => {
+    const animation = createScrollLinkedAnimation(t);
+    const scroller = animation.timeline.scrollSource;
+    const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+
+    animation.play();
+
+    await animation.ready;
+
+    scroller.scrollTop = 0.4 * maxScroll;
+    assert_equals(animation.playState, "running",
+      "Between startScrollOffset and endScrollOffset: state");
+    assert_times_equal(animation.currentTime, 333.333,
+      "Between startScrollOffset and endScrollOffset: animation.currentTime");
+    assert_times_equal(animation.timeline.currentTime, 333.333,
+      "Between startScrollOffset and endScrollOffset: timeline.currentTime");
+
+    scroller.scrollTop = 0.9 * maxScroll;
+    assert_equals(animation.playState, "idle",
+      "After endScrollOffset: state");
+    assert_equals(animation.currentTime, null,
+      "After endScrollOffset: animation.currentTime");
+    assert_equals(animation.timeline.currentTime, Infinity,
+      "After endScrollOffset: timeline.currentTime");
+
+    scroller.scrollTop = 0.4 * maxScroll;
+    assert_equals(animation.playState, "running",
+      "Return to between startScrollOffset and endScrollOffset: state");
+    assert_times_equal(animation.currentTime, 333.333,
+      "Return to between startScrollOffset and endScrollOffset: " +
+      "animation.currentTime");
+    assert_times_equal(animation.timeline.currentTime, 333.333,
+      "Return to between startScrollOffset and endScrollOffset: " +
+      "timeline.currentTime");
+
+  }, 'Animation current time is correct when transitioning from in range, to'+
+  ' past the end, and then back in range.');
+
+</script>
