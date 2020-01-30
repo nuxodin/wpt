@@ -1,0 +1,433 @@
+<!doctype html>
+<script src='/resources/testharness.js'></script>
+<script src='/resources/testharnessreport.js'></script>
+<script src="/resources/check-layout-th.js"></script>
+<link rel="author" title="Aleks Totic" href="atotic@chromium.org" />
+<link rel="help" href="https://www.w3.org/TR/css-tables-3/#distributing-width-to-columns" />
+<style>
+  table {
+    background: gray;
+    margin-bottom: 24px;
+    border-spacing: 8px 8px;
+  }
+  td {
+    padding: 0;
+    background: #BFB;
+    font-size: 10px;
+  }
+  td > div {
+    display: inline-block;
+    background: rgba(56,162,56,0.3);
+  }
+  .error {
+    color: red;
+  }
+  .brick {
+    width: 30px;
+    height: 20px;
+  }
+  p {
+    margin-top:4px;
+    margin-bottom:4px;
+  }
+  .rule1 {
+    background: #87dc8a;
+  }
+  .rule2 {
+    background: #3ae4cc;
+  }
+  .rule1and2 {
+    background: #fda4a4;
+  }
+</style>
+<h1>Colspan > 1 width redistribution</h1>
+<p>Goals</p>
+<ul>
+  <li>Distribution should be stable: reordered span cells retain their width.</li>
+</ul>
+<p>Wide cell redistributes its different widths to the spanned cells: percentage, min and max.</p>
+<p>Creating understandable tests with percentage cells is complex because the relationship between percentage cell width, and table width is complex. Rules that govern relationship between table grid width and percentage cell width are:</p>
+<ol>
+  <li><span class="rule1">Rule#1</span>, Single column sets minimum table width. Minimum table width is column.min_width / column.percent.</li>
+  <li><span class="rule2">Rule#2</span>, All percentage columns set minimum table width. <br>Let P% be sum of all percentages, and Mpx sum of minimum widths of all non-percentage columns. The equations below determine minimum table width:
+    <ul>
+    <li>table width = Mpx + Ppx </li>
+    <li>P% + M% = 100%</li>
+    <li>Ppx * P% = Mpx * M% </li>
+    <li>Ppx * P% = Mpx * (100-P%) </li>
+    <li>Ppx = Mpx * (100-P%) / P% </li>
+    <li>table width = Mpx + Mpx * (100-P%) / P%.</li>
+    <li>table width = Mpx * (1 + (100-P%)/P%)</li>
+    </ul>
+  </li>
+  <p class="error">FF and Edge interpret rule#2 as maximum table width, while Chrome interprets it as minimum table width. See examples 15, 16.</p>
+  <p>Table backgrounds will change if they match the 2 rules above: <span class="rule1">Rule#1</span>, <span class="rule2">Rule#2</span>, and both <span class="rule1and2">Rule#1 and Rule#2</span>.</p>
+</ol>
+  <p>All examples have border-spacing:8, td.padding:0.</p>
+
+<h2>Percentage redistribution</h2>
+<p>Rules</p>
+<ul>
+  <li>Percentages can only be redistributed to non-percentage cells.</li>
+  <li>If percentage does not get redistributed, treat wide cell width as Auto</li>
+  <li>If all columns are empty (no max width), redistribute percentage evenly.</li>
+</ul>
+<p>1) No wide cells, two css/min 10%/20px span cells. <br>
+Table width by rule#1, 20px/0.1(10%) + 4*8 => 232px.</p>
+<table data-expected-width="232">
+  <tr>
+    <td style="width:10%"><div style="width:20px">x</div></td>
+    <td style="width:10%"><div style="width:20px">x</div></td>
+    <td>x</td>
+  </tr>
+</table>
+
+<p>2) css 40% wide cell, two css/min 10%/20px span cells. Percentage does not get redistributed, same table width as previous.</p>
+<table data-expected-width="232">
+  <tr>
+    <td style="width:10%" data-expected-width="20"><div style="width:20px">x</div></td>
+    <td style="width:10%"><div style="width:20px">x</div></td>
+    <td>x</td>
+  </tr>
+  <tr>
+    <td colspan=2 style="width:40%">40%</td>
+  </tr>
+</table>
+
+<p>3)css 20% wide cell. Percentage gets redistributed evenly.
+  <br>Each cell gets 10%, then (100-8)/2=>46px min width. Table min width is 46/0.1(10%) + 4*8 => 460 + 32 => 492</p>
+<p class="error">Chrome is wrong, 1st span cell gets all the width. FF/Edge agree.</p>
+<table data-expected-width="492">
+  <tr>
+    <td data-expected-width="46"></td>
+    <td></td>
+    <td>x</td>
+  </tr>
+  <tr>
+    <td colspan=2 style="width:20%"><div style="width:100px">100px</div></td>
+</table>
+
+<h2>Minimum width redistribution</h2>
+<h3>Unconstrained span cells</h3>
+
+<p>4) css/min auto/300px wide cell, css/min auto/100px span cells.<br>
+span cells get (300-8)/2=>146. Table width is 2*146 + 20 + 4*8 => 344</p>
+<table data-expected-width="344">
+  <tr>
+    <td data-expected-width="146"><div style="width:100px">100px</div></td>
+    <td><div style="width:100px">100px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td data-expected-width="300" colspan=2><div style="width:300px">300px min</div></td>
+  </tr>
+</table>
+
+<p>5) css/min 300px/200px wide cell, css/min auto/100px span cells.<br>
+css wins over min for wide cell.<br>
+Table width same as previous example.</p>
+<table data-expected-width="344">
+  <tr>
+    <td data-expected-width="146"><div style="width:100px">100px</div></td>
+    <td><div style="width:100px">100px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td data-expected-width="300" colspan=2 style="width:300px"><div style="width:200px">300px min</div></td>
+  </tr>
+</table>
+
+<p>6) css/min 260px/300px wide cell, css/min auto/100px span cells.<br>
+  wide cell min width wins over css width.<br>
+Table width same as previous example.</p>
+<table data-expected-width="344">
+  <tr>
+    <td data-expected-width="146"><div style="width:100px">100px</div></td>
+    <td><div style="width:100px">100px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td data-expected-width="300" colspan=2 style="width:260px"><div style="width:300px">300px min</div></td>
+  </tr>
+</table>
+
+<h3>Pixel CSS constrained span cells</h3>
+
+<p>7) css/min auto/300px wide cell, css/min 100/100.</p>
+<table data-expected-width="344">
+  <tr>
+    <td style="width:100px" data-expected-width="146"><div style="width:100px">100px</div></td>
+    <td style="width:100px"><div style="width:100px">100px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td data-expected-width="300" colspan=2 style="width:260px"><div style="width:300px">300px min</div></td>
+  </tr>
+</table>
+
+<p>8) css/min auto/300px wide cell, css/min 100/25, 100/75, span min&lt;css</p>
+<table data-expected-width="344">
+  <tr>
+    <td style="width:100px" data-expected-width="146"><div style="width:25px">25px</div></td>
+    <td style="width:100px"><div style="width:75px">75px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td data-expected-width="300" colspan=2 style=""><div style="width:300px">300px min</div></td>
+  </tr>
+</table>
+
+<p>9) css/min auto/300px wide cell, css/min 10/25, 10/75, span min&gt;css</p>
+<p class="error">Chrome differs from FF/Edge. It distributes min-width in proportion to css width, not min width</p>
+<table data-expected-width="344">
+  <tr>
+    <td style="width:20px" data-expected-width="146"><div style="width:100px">20/100px</div></td>
+    <td style="width:40px"><div style="width:100px">40/100px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td data-expected-width="300" colspan=2 style=""><div style="width:300px">300px min</div></td>
+  </tr>
+</table>
+
+<h3>Percentage CSS constrained span cells</h3>
+
+<p>Rules<br>
+  <ul>
+    <li>min width never gets smaller than it started.
+    <li>max width might shrink?
+    <li>min width becomes cell.percent/cells.percent * wide_cell.min_width</li>
+    <li>max width becomes cell.percent/cells.percent * wide_cell.max_width</li>
+  </ul>
+</p>
+
+<p>10) auto/300px wide cell, 25%/50px span min width<br>
+wide min width gets distributed evenly (-border_spacing) to both cells at 146px<br>
+Table width: 146/0.25 + 4*8 = 584 + 32 = 616
+<table data-expected-width="616">
+  <tr>
+    <td style="width:25%" data-expected-width="146"><div style="width:50px">25%/30px</div></td>
+    <td style="width:25%"><div style="width:50px">25%/30px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td colspan=2 style=""><div style="width:300px">300px min</div></td>
+  </tr>
+</table>
+
+<p>11) auto/400px wide cell, 20%/50px, 60%/50px spans.<br>
+400 - 8px min width gets redistributed to span cells as 98px/294px.<br>
+98px/0.2 => min grid width 490 + 4*8 = 522.</p>
+<p class="error">Edge disagrees, table is 870</p>
+<table data-expected-width="522">
+  <tr>
+    <td style="width:20%" data-expected-width="98"><div style="width:50px">20%/50px</div></td>
+    <td style="width:60%" data-expected-width="294"><div style="width:50px">60%/50px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td colspan=2 style=""><div style="width:400px">400px min</div></td>
+  </tr>
+</table>
+
+<p>12) auto/400px wide cell, 50%/150px, 30%/150px spans.<br>
+min-width of the 2nd cell is larger than redistributed width<br>
+400-8px distributed max width redistributed to span cells as 245/150min/max<br>
+table width = 245/0.5 + 4*8 = 522</p>
+<p class="error">Everyone's different. Edge plain wrong, FF slightly wider, Chrome's 2nd span cell seems 'most correct' at its original max width of 150. Edge/FF disagree when previous cell's min width > distributed width. Firefox and Edge seem buggy in that 100 px column that is not being distributed over shrinks in 17).</p>
+<table data-expected-width="522">
+  <tr>
+    <td style="width:50%" data-expected-width="245"><div style="width:150px">25%/30px</div></td>
+    <td style="width:30%" data-expected-width="150"><div style="width:150px">75%/30px</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td colspan=2 style=""><div style="width:400px">300px min</div></td>
+  </tr>
+</table>
+
+<p>13) auto/400px wide cell, 50%/75px/125px, 30%/75px/125px spans.<br>
+400-8px min width gets redistributed as 245/147 (no min width limits)<br>
+</p>
+<p class="error">Edge is different</p>
+  <table data-expected-width="522">
+  <tr>
+    <td style="width:50%" data-expected-width="245"><div style="width:75px">50%/75</div><div style="width:50px">/125</div></td>
+    <td style="width:30%" data-expected-width="147"><div style="width:75px">30%/75</div><div style="width:50px">/125</div></td>
+    <td style="width:20px">x</td>
+  </tr>
+  <tr>
+    <td colspan=2 style=""><div style="width:400px">300px min</div></td>
+  </tr>
+</table>
+
+<h3>Percentage/fixed mix of CSS constrained span cells</h3>
+<p>The Legacy code that deals with this is confusing, it tries to redistribute minimum width in proportion to max width, unless there are auto cells. All the browsers disagree on final widths. Some things everyone agrees on:
+  <ol>
+    <li>if there are auto cells, fixed cells do not grow.</li>
+  </ol>
+</p>
+
+<p>14) No wide cells, just two spans: 50%/100px , 100px/100px.<br>
+Table width by rule#2: (60/(100-60) +1) * 100 = 250 + 24 = 274</p>
+<table data-expected-width="274">
+  <tr>
+    <td data-expected-width="150" style="width:60%"><div style="width:100px">60%</div></td>
+    <td data-expected-width="100" style="width:100px"><div style="width:100px">100px</div></td>
+  </tr>
+</table>
+
+<p>15)Table width 0 No wide cells,, 500px enclosing div, three spans: 50%/100px, 50%/100px, 100px/100px.<br>
+Table width by rule#2 is infinity, limited to 500px by enclosing div.<br>
+Table width forces column width reduction.<br>
+Cell width percentage of table - fixed width - spacing, 500 - 100 - 32, 368. 50% of 368 is 184.
+</p>
+<p class="error">FF and Edge interpret percentage as maximum width, Chrome as minimum width.</p>
+<div style="width:500px;display:block">
+  <table style="width:0">
+    <tr>
+      <td data-expected-width="184" style="width:50%"><div style="width:100px">50%</div></td>
+      <td data-expected-width="184" style="width:50%"><div style="width:100px">50%</div></td>
+      <td data-expected-width="100" style="width:100px"><div style="width:100px">100px</div></td>
+    </tr>
+  </table>
+</div>
+<p>16) Same example as above, but table width is auto. Demonstrates that FF and Edge interpret rule#2 derived width as maximum width</p>
+<div style="width:500px;display:block">
+  <table>
+    <tr>
+      <td data-expected-width="184" style="width:50%"><div style="width:100px">50%</div></td>
+      <td data-expected-width="184" style="width:50%"><div style="width:100px">50%</div></td>
+      <td data-expected-width="100" style="width:100px"><div style="width:100px">100px</div></td>
+    </tr>
+  </table>
+</div>
+
+<p>17) auto/400px wide cell, 40%/20px, 60px/60px spans.<br>
+</p>
+<p class="error">All the browsers disagree here. Wide cell width gets distributed to min-width of cells in proportion to their max-width. Then we compute grid size, use that to compute %ge cell widths, and use that to compute final table size.
+<li>Edge/FF results have some similarities. Their columns match the wide cell, but non-wide cell is shrunk.</li>
+<li>Chrome grows the 200px cell, but keeps the non-wide cell length.</li> </p>
+<table data-expected-width="282">
+  <tr>
+    <td data-expected-width="100" style="width:40%"><div style="width:20px">40%</div></td>
+    <td data-expected-width="50" style="width:50px"><div style="width:50px">50px</div></td>
+    <td data-expected-width="100" style="width:100px">100</td>
+  </tr>
+</table>
+<table style="width:0" data-expected-width="428">
+  <tr>
+    <td data-expected-width="158" style="width:40%"><div style="width:20px">30</div></td>
+    <td data-expected-width="138" style="width:50px"><div style="width:50px">30</div></td>
+    <td data-expected-width="100" style="width:100px">100</td>
+  </tr>
+  <tr>
+    <td colspan=2 data-expected-width="304" ><div style="width:200px">200px min</div></td>
+  </tr>
+</table>
+<table style="width:0" data-expected-width="525">
+  <tr>
+    <td data-expected-width="197" style="width:40%"><div style="width:50px">30</div></td>
+    <td data-expected-width="196" style="width:50px"><div style="width:50px">30</div></td>
+    <td data-expected-width="100" style="width:100px">100</td>
+  </tr>
+  <tr>
+    <td colspan=2 data-expected-width="401" ><div style="width:400px">400px min</div></td>
+  </tr>
+</table>
+
+<p>18) auto/400px wide cell, 40%/20px, 60px/60px, auto/50px spans<br>
+<table style="width:0" data-expected-width="633">
+  <tr>
+    <td data-expected-width="237" style="width:40%"><div style="width:50px">30</div></td>
+    <td data-expected-width="50" style="width:50px"><div style="width:50px">30</div></td>
+    <td data-expected-width="206" style=""><div style="width:50px">30</div></td>
+    <td data-expected-width="100" style="width:100px">100</td>
+  </tr>
+  <tr>
+    <td colspan=3 data-expected-width="509" ><div style="width:400px">400px min</div></td>
+  </tr>
+</table>
+
+<script>
+function measureCellMinMax(cell) {
+  let d = document.createElement("div");
+  let clone = cell.cloneNode(true);
+  for (child of Array.from(clone.childNodes))
+    d.appendChild(child);
+  d.style.width = "min-content";
+  document.body.appendChild(d);
+  let min = d.offsetWidth;
+  d.style.width = "max-content";
+  let max = d.offsetWidth;
+  d.remove();
+  return {min: min, max: max};
+}
+function annotateTable(t) {
+  let tableWidth = t.offsetWidth;
+
+  let firstCell;
+  let totalCellPercent = 0;
+  let nonPercentCellWidth = 0;
+  let tableMinWidthByCellPercent = 0;
+  let cellCount = 0;
+  let cells = Array.from(t.querySelectorAll("td"));
+  let spacing = (2 + cells.length - 1)*8;
+  for (let cell of cells) {
+    if (!firstCell)
+      firstCell = cell;
+    cellCount++;
+    let percent = cell.offsetWidth / (tableWidth - spacing) * 100;
+    let minmax = measureCellMinMax(cell);
+    let title = `${cell.offsetWidth.toFixed(1)}px\nmin:${minmax.min}px max:${minmax.max}px ${percent.toFixed(1)}%`;
+    let cssWidth = cell.style.width;
+    if (cssWidth) {
+      let w = parseFloat(cssWidth);
+      if (cssWidth.match(/\%/)) {
+        totalCellPercent += w;
+        let tableMinWidth = minmax.min / (w / 100);
+        tableMinWidthByCellPercent = Math.max(tableMinWidthByCellPercent, tableMinWidth);
+        title += `\nmin table: ${tableMinWidth.toFixed(0)}px`;
+      } else {
+        nonPercentCellWidth += w;
+      }
+    }
+    title += `\nTable: ${tableWidth.toFixed(0)} spacing: ${spacing}px`;
+    cell.setAttribute("title", title);
+  }
+
+
+  // Display table statistics in first cell.
+  if (firstCell) {
+    let title = firstCell.getAttribute("title");
+    let ruleMatch = 0;
+    if (tableMinWidthByCellPercent != 0) {
+      if ((tableMinWidthByCellPercent + spacing) == tableWidth)
+        ruleMatch += 1;
+      title += `\nTable min by single cell percent: ${tableMinWidthByCellPercent.toFixed(1)}`;
+    } else {
+      title += "\nTable min by single cell percent NA";
+    }
+    if (nonPercentCellWidth && totalCellPercent > 0) {
+      totalCellPercent = Math.min(totalCellPercent, 100);
+      title += `\nPercent sum: ${totalCellPercent.toFixed(1)}%, non percent width: ${nonPercentCellWidth}px`;
+      let tableMinBySum = (totalCellPercent / (100 - totalCellPercent) +1) * nonPercentCellWidth;
+      if (Math.floor((tableMinBySum + spacing)) == Math.floor(tableWidth))
+        ruleMatch += 2;
+      title += `\nTable min by sum ${totalCellPercent}%: ${tableMinBySum.toFixed(1)}px`;
+    } else {
+      "Table min by % sum not available";
+    }
+    firstCell.setAttribute("title", title);
+    switch(ruleMatch) {
+      case 1: t.classList.toggle('rule1'); break;
+      case 2: t.classList.toggle('rule2'); break;
+      case 3: t.classList.toggle('rule1and2'); break;
+      default: break;
+    }
+  }
+}
+for (let t of Array.from(document.querySelectorAll("table")))
+  annotateTable(t);
+checkLayout("table");
+</script>

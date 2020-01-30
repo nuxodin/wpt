@@ -162,6 +162,8 @@ function checkExpectedValues(t, node, prefix)
 }
 
 var testNumber = 0;
+var highlightError = true;
+var printDomOnError = false;
 
 window.checkLayout = function(selectorList, callDone = true)
 {
@@ -175,13 +177,22 @@ window.checkLayout = function(selectorList, callDone = true)
     Array.prototype.forEach.call(nodes, function(node) {
         test(function(t) {
             var container = node.parentNode.className == 'container' ? node.parentNode : node;
-            var prefix = "\n" + container.outerHTML + "\n";
+            var prefix = printDomOnError ? "\n" + container.outerHTML + "\n" : "";
             var passed = false;
             try {
                 checkedLayout |= checkExpectedValues(t, node.parentNode, prefix);
                 checkedLayout |= checkSubtreeExpectedValues(t, node, prefix);
                 passed = true;
             } finally {
+                if (!passed && highlightError) {
+                    if (!document.querySelector('#testharness_error_css')) {
+                        var style = document.createElement('style');
+                        style.setAttribute('id', '#testharness_error_css');
+                        style.appendChild(document.createTextNode('.testharness_error { background: rgba(255,0,0,0.5); }'));
+                    }
+                    if (node && node.classList)
+                        node.classList.set('testharness_error');
+                }
                 checkedLayout |= !passed;
             }
         }, selectorList + ' ' + String(++testNumber));
